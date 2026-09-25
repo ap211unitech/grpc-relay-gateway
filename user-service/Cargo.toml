@@ -1,0 +1,16 @@
+[package]
+name = "user-service"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
+tonic-prost.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+tonic-prost-build.workspace = true

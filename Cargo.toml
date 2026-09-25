@@ -1,0 +1,17 @@
+[workspace]
+resolver = "3"
+members = ["api-gateway", "user-service"]
+
+[workspace.package]
+version = "0.1.0"
+rust-version = "1.93.1"
+edition = "2024"
+authors = ["Arjun Porwal <porwalarjun95@gmail.com>"]
+
+[workspace.dependencies]
+tonic = "0.14.6"
+prost = "0.14.4"
+tonic-prost = "0.14.6"
+tokio = { version = "1.53.1", features = ["full"] }
+tonic-prost-build = "0.14.6"
+uuid = { version = "1.26.1", features = ["v4"] }
