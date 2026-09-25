@@ -44,6 +44,22 @@ impl UserService for UserStore {
 
         Ok(tonic::Response::new(user))
     }
+
+    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
+        let id = request.into_inner().id;
+
+        let users = &self
+            .users
+            .lock()
+            .map_err(|_| Status::internal("user store lock poisoned"))?;
+
+        let user = users.get(&id);
+
+        match user {
+            Some(user) => Ok(tonic::Response::new(user.to_owned())),
+            _ => Err(Status::not_found("user not found")),
+        }
+    }
 }
 
 #[tokio::main]
