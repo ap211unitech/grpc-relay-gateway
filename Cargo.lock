@@ -571,12 +571,10 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 name = "post-service"
 version = "0.1.0"
 dependencies = [
- "prost",
  "prost-types",
+ "proto",
  "tokio",
  "tonic",
- "tonic-prost",
- "tonic-prost-build",
  "uuid",
 ]
 

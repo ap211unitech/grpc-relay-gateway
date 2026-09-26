@@ -8,10 +8,6 @@ authors.workspace = true
 [dependencies]
 tokio.workspace = true
 tonic.workspace = true
-prost.workspace = true
 prost-types.workspace = true
-tonic-prost.workspace = true
 uuid.workspace = true
-
-[build-dependencies]
-tonic-prost-build.workspace = true
+proto = { path = "../proto" }

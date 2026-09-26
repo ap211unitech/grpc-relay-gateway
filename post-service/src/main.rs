@@ -1,21 +1,21 @@
+use proto::posts::post_service_server::PostServiceServer;
 use tonic::transport::Server;
 
-use crate::{proto::post_service_server::PostServiceServer, service::PostStore};
+use crate::service::PostStore;
 
 mod error;
-mod proto;
 mod service;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50052".parse()?;
+    let addr = "127.0.0.1:50052".parse()?;
 
-    let user_store = PostStore::default();
+    let post_store = PostStore::default();
 
     println!("gRPC PostService listening on {addr}");
 
     Server::builder()
-        .add_service(PostServiceServer::new(user_store))
+        .add_service(PostServiceServer::new(post_store))
         .serve(addr)
         .await?;
 
