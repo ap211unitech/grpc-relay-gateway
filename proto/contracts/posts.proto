@@ -7,6 +7,7 @@ service PostService {
     rpc CreatePost (CreatePostRequest) returns (Post) {}
     rpc GetPost (GetPostRequest) returns (Post) {}
     rpc ListPostsForUser (GetPostsForUserRequest) returns (PostList) {}
+    rpc DeletePost (DeletePostRequest) returns (Empty) {}
 }
 
 message CreatePostRequest {
@@ -25,6 +26,13 @@ message GetPostsForUserRequest {
 
 message PostList {
     repeated Post posts = 1;
+}
+
+message Empty {}
+
+message DeletePostRequest {
+    string user_id = 1;
+    string post_id = 2;
 }
 
 message Post {

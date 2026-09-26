@@ -12,8 +12,8 @@ use tonic::{
 use crate::error::LockPoisoned;
 use proto::{
     posts::{
-        CreatePostRequest, GetPostRequest, GetPostsForUserRequest, Post, PostList,
-        post_service_server::PostService,
+        CreatePostRequest, DeletePostRequest, Empty, GetPostRequest, GetPostsForUserRequest, Post,
+        PostList, post_service_server::PostService,
     },
     users::{GetUserRequest, user_service_client::UserServiceClient},
 };
@@ -123,5 +123,44 @@ impl PostService for PostStore {
             .collect();
 
         Ok(Response::new(PostList { posts }))
+    }
+
+    async fn delete_post(
+        &self,
+        request: Request<DeletePostRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+
+        let owner_id = {
+            let posts = self.posts.lock().map_err(LockPoisoned::from)?;
+            match posts.get(&req.post_id) {
+                Some(post) => post.user_id.clone(),
+                None => return Ok(Response::new(Empty {})),
+            }
+        };
+
+        if owner_id != req.user_id {
+            return Err(Status::permission_denied("you do not own this post"));
+        }
+
+        // Now it's safe to actually remove it.
+        let removed = self
+            .posts
+            .lock()
+            .map_err(LockPoisoned::from)?
+            .remove(&req.post_id);
+
+        if let Some(post) = removed {
+            if let Some(user_posts) = self
+                .by_user
+                .lock()
+                .map_err(LockPoisoned::from)?
+                .get_mut(&post.user_id)
+            {
+                user_posts.retain(|id| id != &req.post_id);
+            }
+        }
+
+        Ok(Response::new(Empty {}))
     }
 }
