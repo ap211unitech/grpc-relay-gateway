@@ -1,4 +1,7 @@
 use futures::Stream;
+use proto::users::{
+    CreateUserRequest, Empty, GetUserRequest, User, user_service_server::UserService,
+};
 use std::{
     collections::HashMap,
     pin::Pin,
@@ -6,10 +9,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::{
-    error::LockPoisoned,
-    proto::{CreateUserRequest, Empty, GetUserRequest, User, user_service_server::UserService},
-};
+use crate::error::LockPoisoned;
 use tonic::{Request, Response, Status};
 
 #[derive(Debug, Default)]

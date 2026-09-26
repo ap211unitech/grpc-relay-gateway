@@ -1,9 +1,9 @@
+use proto::users::user_service_server::UserServiceServer;
 use tonic::transport::Server;
 
-use crate::{proto::user_service_server::UserServiceServer, service::UserStore};
+use crate::service::UserStore;
 
 mod error;
-mod proto;
 mod service;
 
 #[tokio::main]
