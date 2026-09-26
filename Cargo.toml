@@ -9,9 +9,11 @@ edition = "2024"
 authors = ["Arjun Porwal <porwalarjun95@gmail.com>"]
 
 [workspace.dependencies]
+futures = "0.3.34"
 tonic = "0.14.6"
 prost = "0.14.4"
 tonic-prost = "0.14.6"
 tokio = { version = "1.53.1", features = ["full"] }
+tokio-stream = "0.1.19"
 tonic-prost-build = "0.14.6"
 uuid = { version = "1.26.1", features = ["v4"] }

@@ -1,66 +1,10 @@
-tonic::include_proto!("users");
+use tonic::transport::Server;
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use crate::{proto::user_service_server::UserServiceServer, service::UserStore};
 
-use tonic::{Request, Response, Status, transport::Server};
-use user_service_server::{UserService, UserServiceServer};
-
-#[derive(Debug, Default)]
-struct UserStore {
-    users: Arc<Mutex<HashMap<String, User>>>,
-}
-
-#[tonic::async_trait]
-impl UserService for UserStore {
-    async fn create_user(
-        &self,
-        request: Request<CreateUserRequest>,
-    ) -> Result<Response<User>, Status> {
-        let user = request.into_inner();
-
-        if user.name.trim().is_empty() {
-            return Err(Status::invalid_argument("name must not be empty"));
-        }
-        if user.email.trim().is_empty() {
-            return Err(Status::invalid_argument("email must not be empty"));
-        }
-
-        let id = uuid::Uuid::new_v4().to_string();
-
-        let user = User {
-            id: id.clone(),
-            name: user.name,
-            email: user.email,
-        };
-
-        let mut users = self
-            .users
-            .lock()
-            .map_err(|_| Status::internal("user store lock poisoned"))?;
-        let user = users.entry(id).or_insert(user).to_owned();
-
-        Ok(tonic::Response::new(user))
-    }
-
-    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
-        let id = request.into_inner().id;
-
-        let users = &self
-            .users
-            .lock()
-            .map_err(|_| Status::internal("user store lock poisoned"))?;
-
-        let user = users.get(&id);
-
-        match user {
-            Some(user) => Ok(tonic::Response::new(user.to_owned())),
-            _ => Err(Status::not_found("user not found")),
-        }
-    }
-}
+mod error;
+mod proto;
+mod service;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

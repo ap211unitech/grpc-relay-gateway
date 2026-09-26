@@ -6,9 +6,12 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+futures.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 tonic.workspace = true
 prost.workspace = true
+prost-types = "0.14.4"
 tonic-prost.workspace = true
 uuid.workspace = true
 
