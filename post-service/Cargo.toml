@@ -1,14 +1,12 @@
 [package]
-name = "user-service"
+name = "post-service"
 version.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-futures.workspace = true
 tokio.workspace = true
-tokio-stream.workspace = true
 tonic.workspace = true
 prost.workspace = true
 prost-types.workspace = true
