@@ -5,18 +5,32 @@ import "google/protobuf/timestamp.proto";
 
 service PostService {
     rpc CreatePost (CreatePostRequest) returns (Post) {}
+    rpc GetPost (GetPostRequest) returns (Post) {}
+    rpc ListPostsForUser (GetPostsForUserRequest) returns (PostList) {}
 }
 
 message CreatePostRequest {
-    string userId = 1;
+    string user_id = 1;
     string title = 2;
     string content = 3;
 }
 
+message GetPostRequest {
+    string post_id = 1;
+}
+
+message GetPostsForUserRequest {
+    string user_id = 1;
+}
+
+message PostList {
+    repeated Post posts = 1;
+}
+
 message Post {
-  string id = 1;
-  string user_id = 2;
-  string title = 3;
-  string content = 4;
-  google.protobuf.Timestamp created_at = 5;
+    string id = 1;
+    string user_id = 2;
+    string title = 3;
+    string content = 4;
+    google.protobuf.Timestamp created_at = 5;
 }

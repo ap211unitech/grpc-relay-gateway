@@ -11,7 +11,10 @@ use tonic::{
 
 use crate::error::LockPoisoned;
 use proto::{
-    posts::{CreatePostRequest, Post, post_service_server::PostService},
+    posts::{
+        CreatePostRequest, GetPostRequest, GetPostsForUserRequest, Post, PostList,
+        post_service_server::PostService,
+    },
     users::{GetUserRequest, user_service_client::UserServiceClient},
 };
 
@@ -88,5 +91,37 @@ impl PostService for PostStore {
             .push(post.id.clone());
 
         Ok(Response::new(post))
+    }
+
+    async fn get_post(&self, request: Request<GetPostRequest>) -> Result<Response<Post>, Status> {
+        let post_id = request.into_inner().post_id;
+        let posts = self.posts.lock().map_err(LockPoisoned::from)?;
+        let post = posts.get(&post_id);
+        match post {
+            Some(post) => Ok(Response::new(post.to_owned())),
+            _ => Err(Status::not_found("post not found")),
+        }
+    }
+
+    async fn list_posts_for_user(
+        &self,
+        request: Request<GetPostsForUserRequest>,
+    ) -> Result<Response<PostList>, Status> {
+        let user_id = request.into_inner().user_id;
+        let post_ids = self
+            .by_user
+            .lock()
+            .map_err(LockPoisoned::from)?
+            .get(&user_id)
+            .cloned()
+            .unwrap_or_default();
+
+        let posts_map = self.posts.lock().map_err(LockPoisoned::from)?;
+        let posts: Vec<Post> = post_ids
+            .iter()
+            .filter_map(|post_id| posts_map.get(post_id).cloned())
+            .collect();
+
+        Ok(Response::new(PostList { posts }))
     }
 }
