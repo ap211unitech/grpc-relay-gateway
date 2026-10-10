@@ -1,4 +1,6 @@
-# gRPC Relay Gateway [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ap211unitech/grpc-relay-gateway)
+# gRPC Relay Gateway
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ap211unitech/grpc-relay-gateway)
 
 A Rust microservice showing gRPC service-to-service communication behind a REST gateway. The project includes:
 
