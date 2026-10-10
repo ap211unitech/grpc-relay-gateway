@@ -9,14 +9,21 @@ A Rust microservice showing gRPC service-to-service communication behind a REST 
 
 ## Architecture
 
-```text
-Browser / curl ──HTTP/REST──▶ api-gateway :8000 ──┐
-                                                    │ gRPC         │ gRPC
-                                                    ▼              ▼
-                                            user-service :50051   post-service :50052
-                                                                      │
-                                                                      └── calls user-service
-                                                                          in few scenarios
+```mermaid
+flowchart LR
+    Client[Browser / curl] -->|REST / HTTP| Gateway[api-gateway\n:8000\nAxum REST layer]
+
+    Gateway -->|CreateUser / GetUser / ListUsers| UserSvc[user-service\n:50051\ngRPC service]
+    Gateway -->|CreatePost / GetPost / ListPostsForUser / DeletePost| PostSvc[post-service\n:50052\ngRPC service]
+
+    UserSvc -->|read/write user data| Redis[(Redis)]
+    PostSvc -->|read/write post data| Redis
+
+    PostSvc -->|validate user exists| UserSvc
+
+    Proto[proto/contracts\nshared protobuf schema] --> UserSvc
+    Proto --> PostSvc
+    Proto --> Gateway
 ```
 
 ## gRPC services
