@@ -23,10 +23,13 @@ pub struct PostStore {
 }
 
 impl PostStore {
-    pub async fn new(redis_url: &str) -> Result<Self, redis::RedisError> {
+    pub async fn new(
+        redis_url: &str,
+        user_service_url: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let client = redis::Client::open(redis_url)?;
         let connection = ConnectionManager::new(client).await?;
-        let endpoint = Endpoint::from_static("http://127.0.0.1:50051");
+        let endpoint = Endpoint::from_shared(user_service_url.to_owned())?;
         let user_client = UserServiceClient::new(endpoint.connect_lazy());
 
         Ok(Self {

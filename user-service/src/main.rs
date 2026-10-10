@@ -10,7 +10,7 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
-    let addr = "127.0.0.1:50051".parse()?;
+    let addr = env::var("USER_SERVICE_URL")?.parse()?;
 
     let redis_url = env::var("REDIS_URL")?;
     let user_store = UserStore::new(&redis_url).await?;

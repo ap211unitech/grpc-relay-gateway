@@ -10,10 +10,11 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv()?;
-    let addr = "127.0.0.1:50052".parse()?;
+    let addr = env::var("POST_SERVICE_URL")?.parse()?;
 
     let redis_url = env::var("REDIS_URL")?;
-    let post_store = PostStore::new(&redis_url).await?;
+    let user_service_url = env::var("USER_SERVICE_URL")?;
+    let post_store = PostStore::new(&redis_url, &user_service_url).await?;
 
     println!("gRPC PostService listening on {addr}");
 

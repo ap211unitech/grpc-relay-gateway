@@ -81,16 +81,17 @@ The gateway runs on `127.0.0.1:8000` and translates REST requests into gRPC call
 
 ## Run locally
 
-Install Rust, Docker Compose, and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`). Start Redis and then start each service from the workspace root in its own terminal:
+Install Rust, Docker Compose, and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`). Copy the committed `.env.local` template to `.env`; services and Docker Compose read their configuration from `.env`:
 
 ```sh
+cp .env.local .env
 docker compose up -d redis
 cargo run -p user-service
 cargo run -p post-service
 cargo run -p api-gateway
 ```
 
-Both gRPC services load `REDIS_URL` from the root `.env` file. The default is `redis://127.0.0.1:6379`; `REDIS_PORT` configures the host port published by Compose. Redis uses a Docker volume, so data remains available when the container is restarted. Stop the container with `docker compose down` (the volume is retained).
+All services load their URLs from `.env`: `USER_SERVICE_URL`, `POST_SERVICE_URL`, and `API_GATEWAY_URL` configure the gRPC endpoints and gateway listener. Both gRPC services use `REDIS_URL` to connect to Redis; `REDIS_PORT` configures the host port published by Compose. Redis uses a Docker volume, so data remains available when the container is restarted. Stop the container with `docker compose down` (the volume is retained).
 
 The services listen on:
 

@@ -8,6 +8,7 @@ use proto::{
     posts::post_service_client::PostServiceClient, users::user_service_client::UserServiceClient,
 };
 use serde_json::json;
+use std::{env, net::SocketAddr};
 use tonic::transport::{Channel, Endpoint};
 
 use crate::handlers::{
@@ -18,7 +19,7 @@ use crate::handlers::{
 mod errors;
 mod handlers;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct AppState {
     users: UserServiceClient<Channel>,
     posts: PostServiceClient<Channel>,
@@ -26,13 +27,15 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    dotenvy::dotenv()?;
+    let user_service_url = format!("http://{}", env::var("USER_SERVICE_URL")?);
+    let post_service_url = format!("http://{}", env::var("POST_SERVICE_URL")?);
+    let gateway_url = env::var("API_GATEWAY_URL")?;
+    let gateway_addr = gateway_url.parse::<SocketAddr>()?;
+
     let state = AppState {
-        users: UserServiceClient::new(
-            Endpoint::from_static("http://127.0.0.1:50051").connect_lazy(),
-        ),
-        posts: PostServiceClient::new(
-            Endpoint::from_static("http://127.0.0.1:50052").connect_lazy(),
-        ),
+        users: UserServiceClient::new(Endpoint::from_shared(user_service_url)?.connect().await?),
+        posts: PostServiceClient::new(Endpoint::from_shared(post_service_url)?.connect().await?),
     };
 
     let app = Router::new()
@@ -44,7 +47,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .route("/posts/{id}", get(get_post))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8000").await?;
+    let listener = tokio::net::TcpListener::bind(gateway_addr).await?;
 
     println!(
         "🚀 API Gateway running on: {}",
