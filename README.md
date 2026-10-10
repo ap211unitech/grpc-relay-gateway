@@ -29,7 +29,7 @@ Supported RPCs:
 - `GetUser`
 - `ListUsers` (server-streaming)
 
-The service keeps users in memory with `Arc<Mutex<HashMap<String, User>>>` and returns a stream of user records for `ListUsers`.
+Users are stored in Redis and `ListUsers` streams the records indexed there.
 
 ### Post service — `127.0.0.1:50052`
 
@@ -47,9 +47,9 @@ Behavior details:
   - connectivity or downstream failure -> `UNAVAILABLE`
 - `DeletePost` requires the caller to send the matching `user_id` and rejects mismatches with `PERMISSION_DENIED`.
 - Deleting a missing post is treated as success, which matches a forgiving REST-style DELETE flow.
-- Posts are indexed both by `post_id` and by `user_id` to support efficient per-user listing.
+- Posts are stored in Redis by `post_id` and indexed by `user_id` to support efficient per-user listing.
 
-Both services keep data in process memory.
+Both services persist data in Redis, so records are shared across service restarts.
 
 ## API gateway
 
@@ -81,13 +81,16 @@ The gateway runs on `127.0.0.1:8000` and translates REST requests into gRPC call
 
 ## Run locally
 
-Install Rust and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`), then start each service from the workspace root in its own terminal:
+Install Rust, Docker Compose, and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`). Start Redis and then start each service from the workspace root in its own terminal:
 
 ```sh
+docker compose up -d redis
 cargo run -p user-service
 cargo run -p post-service
 cargo run -p api-gateway
 ```
+
+Both gRPC services load `REDIS_URL` from the root `.env` file. The default is `redis://127.0.0.1:6379`; `REDIS_PORT` configures the host port published by Compose. Redis uses a Docker volume, so data remains available when the container is restarted. Stop the container with `docker compose down` (the volume is retained).
 
 The services listen on:
 
@@ -95,7 +98,7 @@ The services listen on:
 - `post-service`: `127.0.0.1:50052`
 - `api-gateway`: `127.0.0.1:8000`
 
-`post-service` connects to `user-service` during startup and exits early if it is not reachable, which makes the dependency problem visible immediately.
+`post-service` checks that a user exists when a post is created; if `user-service` is unavailable, the create request returns an error.
 
 ## Build
 
