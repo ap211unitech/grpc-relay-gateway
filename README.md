@@ -81,10 +81,10 @@ The gateway runs on `127.0.0.1:8000` and translates REST requests into gRPC call
 
 ## Run locally
 
-Install Rust, Docker Compose, and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`). Copy the committed `.env.local` template to `.env`; services and Docker Compose read their configuration from `.env`:
+Install Rust, Docker Compose, and `protoc` (`brew install protobuf` or `apt install protobuf-compiler`). Copy the committed `.env.example` template to `.env`; services and Docker Compose read their configuration from `.env`:
 
 ```sh
-cp .env.local .env
+cp .env.example .env
 docker compose up -d redis
 cargo run -p user-service
 cargo run -p post-service
