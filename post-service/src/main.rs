@@ -1,16 +1,20 @@
 use proto::posts::post_service_server::PostServiceServer;
+use std::env;
 use tonic::transport::Server;
 
 use crate::service::PostStore;
 
-mod error;
 mod service;
+mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:50052".parse()?;
+    dotenvy::dotenv()?;
+    let addr = env::var("POST_SERVICE_URL")?.parse()?;
 
-    let post_store = PostStore::default();
+    let redis_url = env::var("REDIS_URL")?;
+    let user_service_url = format!("http://{}", env::var("USER_SERVICE_URL")?);
+    let post_store = PostStore::new(&redis_url, &user_service_url).await?;
 
     println!("gRPC PostService listening on {addr}");
 

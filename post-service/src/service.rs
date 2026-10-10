@@ -1,15 +1,12 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::SystemTime,
-};
+use std::time::SystemTime;
 
+use prost::Message;
+use redis::{AsyncCommands, aio::ConnectionManager};
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Endpoint},
 };
 
-use crate::error::LockPoisoned;
 use proto::{
     posts::{
         CreatePostRequest, DeletePostRequest, Empty, GetPostRequest, GetPostsForUserRequest, Post,
@@ -18,22 +15,27 @@ use proto::{
     users::{GetUserRequest, user_service_client::UserServiceClient},
 };
 
+use crate::utils::{post_key, redis_unavailable, user_posts_key};
+
 pub struct PostStore {
-    posts: Arc<Mutex<HashMap<String, Post>>>,
-    by_user: Arc<Mutex<HashMap<String, Vec<String>>>>,
+    connection: ConnectionManager,
     user_client: UserServiceClient<Channel>,
 }
 
-impl Default for PostStore {
-    fn default() -> Self {
-        let endpoint = Endpoint::from_static("http://127.0.0.1:50051");
-        let user_client = UserServiceClient::new(endpoint.connect_lazy());
+impl PostStore {
+    pub async fn new(
+        redis_url: &str,
+        user_service_url: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let client = redis::Client::open(redis_url)?;
+        let connection = ConnectionManager::new(client).await?;
+        let endpoint = Endpoint::from_shared(user_service_url.to_owned())?;
+        let user_client = UserServiceClient::new(endpoint.connect().await?);
 
-        Self {
-            posts: Arc::new(Mutex::new(HashMap::new())),
-            by_user: Arc::new(Mutex::new(HashMap::new())),
+        Ok(Self {
+            connection,
             user_client,
-        }
+        })
     }
 }
 
@@ -63,7 +65,6 @@ impl PostService for PostStore {
             return Err(Status::invalid_argument("content must not be empty"));
         }
 
-        // Check if user exists
         let mut user_client = self.user_client.clone();
         user_client
             .get_user(GetUserRequest {
@@ -71,35 +72,37 @@ impl PostService for PostStore {
             })
             .await
             .map_err(|status| match status.code() {
-                tonic::Code::NotFound => Status::failed_precondition(format!(
-                    "user {} does not exist",
-                    post.user_id.clone()
-                )),
+                tonic::Code::NotFound => {
+                    Status::failed_precondition(format!("user {} does not exist", post.user_id))
+                }
                 _ => Status::unavailable("could not reach user service"),
             })?;
 
-        self.posts
-            .lock()
-            .map_err(LockPoisoned::from)?
-            .insert(post.id.clone(), post.clone());
-
-        self.by_user
-            .lock()
-            .map_err(LockPoisoned::from)?
-            .entry(post.user_id.clone())
-            .or_default()
-            .push(post.id.clone());
+        let mut connection = self.connection.clone();
+        redis::pipe()
+            .atomic()
+            .set(post_key(&post.id), post.encode_to_vec())
+            .sadd(user_posts_key(&post.user_id), &post.id)
+            .query_async::<()>(&mut connection)
+            .await
+            .map_err(redis_unavailable)?;
 
         Ok(Response::new(post))
     }
 
     async fn get_post(&self, request: Request<GetPostRequest>) -> Result<Response<Post>, Status> {
         let post_id = request.into_inner().post_id;
-        let posts = self.posts.lock().map_err(LockPoisoned::from)?;
-        let post = posts.get(&post_id);
-        match post {
-            Some(post) => Ok(Response::new(post.to_owned())),
-            _ => Err(Status::not_found("post not found")),
+        let mut connection = self.connection.clone();
+        let encoded: Option<Vec<u8>> = connection
+            .get(post_key(&post_id))
+            .await
+            .map_err(redis_unavailable)?;
+
+        match encoded {
+            Some(encoded) => Post::decode(encoded.as_slice())
+                .map(Response::new)
+                .map_err(|error| Status::internal(format!("stored post is invalid: {error}"))),
+            None => Err(Status::not_found("post not found")),
         }
     }
 
@@ -108,19 +111,27 @@ impl PostService for PostStore {
         request: Request<GetPostsForUserRequest>,
     ) -> Result<Response<PostList>, Status> {
         let user_id = request.into_inner().user_id;
-        let post_ids = self
-            .by_user
-            .lock()
-            .map_err(LockPoisoned::from)?
-            .get(&user_id)
-            .cloned()
-            .unwrap_or_default();
+        let mut connection = self.connection.clone();
+        let post_ids: Vec<String> = connection
+            .smembers(user_posts_key(&user_id))
+            .await
+            .map_err(redis_unavailable)?;
 
-        let posts_map = self.posts.lock().map_err(LockPoisoned::from)?;
-        let posts: Vec<Post> = post_ids
-            .iter()
-            .filter_map(|post_id| posts_map.get(post_id).cloned())
-            .collect();
+        if post_ids.is_empty() {
+            return Ok(Response::new(PostList { posts: Vec::new() }));
+        }
+
+        let keys: Vec<String> = post_ids.iter().map(|id| post_key(id)).collect();
+        let encoded_posts: Vec<Option<Vec<u8>>> =
+            connection.mget(keys).await.map_err(redis_unavailable)?;
+        let posts = encoded_posts
+            .into_iter()
+            .flatten()
+            .map(|encoded| {
+                Post::decode(encoded.as_slice())
+                    .map_err(|error| Status::internal(format!("stored post is invalid: {error}")))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Response::new(PostList { posts }))
     }
@@ -130,36 +141,28 @@ impl PostService for PostStore {
         request: Request<DeletePostRequest>,
     ) -> Result<Response<Empty>, Status> {
         let req = request.into_inner();
-
-        let owner_id = {
-            let posts = self.posts.lock().map_err(LockPoisoned::from)?;
-            match posts.get(&req.post_id) {
-                Some(post) => post.user_id.clone(),
-                None => return Ok(Response::new(Empty {})),
-            }
+        let mut connection = self.connection.clone();
+        let encoded: Option<Vec<u8>> = connection
+            .get(post_key(&req.post_id))
+            .await
+            .map_err(redis_unavailable)?;
+        let Some(encoded) = encoded else {
+            return Ok(Response::new(Empty {}));
         };
+        let post = Post::decode(encoded.as_slice())
+            .map_err(|error| Status::internal(format!("stored post is invalid: {error}")))?;
 
-        if owner_id != req.user_id {
+        if post.user_id != req.user_id {
             return Err(Status::permission_denied("you do not own this post"));
         }
 
-        // Now it's safe to actually remove it.
-        let removed = self
-            .posts
-            .lock()
-            .map_err(LockPoisoned::from)?
-            .remove(&req.post_id);
-
-        if let Some(post) = removed {
-            if let Some(user_posts) = self
-                .by_user
-                .lock()
-                .map_err(LockPoisoned::from)?
-                .get_mut(&post.user_id)
-            {
-                user_posts.retain(|id| id != &req.post_id);
-            }
-        }
+        redis::pipe()
+            .atomic()
+            .del(post_key(&req.post_id))
+            .srem(user_posts_key(&post.user_id), &req.post_id)
+            .query_async::<()>(&mut connection)
+            .await
+            .map_err(redis_unavailable)?;
 
         Ok(Response::new(Empty {}))
     }
