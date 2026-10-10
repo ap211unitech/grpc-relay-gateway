@@ -30,7 +30,7 @@ impl PostStore {
         let client = redis::Client::open(redis_url)?;
         let connection = ConnectionManager::new(client).await?;
         let endpoint = Endpoint::from_shared(user_service_url.to_owned())?;
-        let user_client = UserServiceClient::new(endpoint.connect_lazy());
+        let user_client = UserServiceClient::new(endpoint.connect().await?);
 
         Ok(Self {
             connection,
