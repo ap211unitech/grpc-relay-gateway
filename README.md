@@ -132,7 +132,7 @@ CONCURRENCY=800 DURATION=60s ./scripts/load-test.sh
 
 | Endpoint            | Concurrency | P50        | P95        | P99        | Status Code | Error Rate |
 | ------------------- | ----------- | ---------- | ---------- | ---------- | ----------- | ---------- |
-| create-user         | 25          | 73.7 ms    | 1,37.1 ms  | 1,70.8 ms  | 201         | 0%         |
+| create-user         | 25          | 73.7 ms    | 137.1 ms   | 170.8 ms   | 201         | 0%         |
 | delete-post         | 25          | 41.19 ms   | 88.66 ms   | 118.63 ms  | 204         | 0%         |
 | list-posts-for-user | 25          | 62.77 ms   | 144.24 ms  | 187.66 ms  | 200         | 0%         |
 | create-post         | 25          | 67.6 ms    | 193.1 ms   | 500.9 ms   | 201         | 0%         |
